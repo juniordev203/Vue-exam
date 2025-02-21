@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .highlight {
+            background-color: yellow;
+        }
+    </style>
+</head>
+
+<body>
+    <audio id="audioPlayer" controls></audio>
+    <div id="transcript"></div>
+    <script>
+        async function loadData() {
+            try {
+                const response = await fetch('/jameslan.json');
+                const data = await response.json();
+
+                const audioPlayer = document.getElementById('audioPlayer');
+                audioPlayer.src = './jameslan.ogg';
+
+                const transcriptDiv = document.getElementById('transcript');
+                const wordElements = [];
+
+                // Tạo các phần tử từ timestamp, giữ nguyên cấu trúc
+                if (data.timestamp && data.timestamp.length > 0) {
+                    // Tạo một container chính
+                    const container = document.createElement('div');
+                    transcriptDiv.appendChild(container);
+
+                    data.timestamp.forEach((item) => {
+                        // Format của timestamp: [startTime, duration, text, startPosition, length]
+                        const startTime = item[0];
+                        const duration = item[1];
+                        const text = item[2];
+
+                        // Tạo span cho mỗi từ
+                        const wordSpan = document.createElement('span');
+                        wordSpan.textContent = text;
+                        wordSpan.dataset.startTime = startTime;
+                        wordSpan.dataset.duration = duration;
+
+                        // Thêm dấu cách sau mỗi từ (trừ khi là dấu câu cuối cùng)
+                        if (!['.', ',', '!', '?', ':'].includes(text)) {
+                            wordSpan.textContent += ' ';
+                        }
+
+                        container.appendChild(wordSpan);
+                        wordElements.push(wordSpan);
+                    });
+                }
+
+                let currentWordIndex = -1;
+
+                // Xử lý cập nhật highlight khi audio phát
+                audioPlayer.addEventListener('timeupdate', function () {
+                    const currentTime = audioPlayer.currentTime * 1000; // Convert to ms
+                    const threshold = 10; // Ngưỡng thời gian (điều chỉnh nếu cần)
+
+                    // Tìm từ cần highlight dựa trên thời gian hiện tại
+                    for (let i = 0; i < data.timestamp.length; i++) {
+                        const startTime = data.timestamp[i][0];
+                        const duration = data.timestamp[i][1];
+                        const endTime = startTime + duration;
+
+                        if (currentTime >= startTime - threshold && currentTime <= endTime + threshold) {
+                            // Chỉ cập nhật khi cần thiết
+                            if (i !== currentWordIndex) {
+                                // Xóa highlight cũ
+                                if (currentWordIndex >= 0) {
+                                    wordElements[currentWordIndex].classList.remove('highlight');
+                                }
+
+                                // Highlight từ mới
+                                wordElements[i].classList.add('highlight');
+                                wordElements[i].scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'
+                                });
+
+                                // Cập nhật trạng thái
+                                currentWordIndex = i;
+
+                                console.log(`Time: ${currentTime.toFixed(1)}ms | Word: "${data.timestamp[i][2]}" | StartTime: ${startTime}ms | Duration: ${duration}ms`);
+                            }
+                            return;
+                        }
+                    }
+
+                    // Nếu thời gian hiện tại nằm ngoài phạm vi của từ cuối cùng
+                    // hoặc trước từ đầu tiên, xóa highlight
+                    if (currentWordIndex >= 0 &&
+                        (currentTime > data.timestamp[data.timestamp.length - 1][0] + data.timestamp[data.timestamp.length - 1][1] ||
+                            currentTime < data.timestamp[0][0])) {
+                        wordElements[currentWordIndex].classList.remove('highlight');
+                        currentWordIndex = -1;
+                    }
+                });
+
+                // Xử lý sự kiện khi tua audio
+                audioPlayer.addEventListener('seeking', function () {
+                    const currentTime = audioPlayer.currentTime * 1000;
+                    const threshold = 10; // Ngưỡng thời gian (điều chỉnh nếu cần)
+
+                    // Xóa highlight hiện tại
+                    if (currentWordIndex >= 0) {
+                        wordElements[currentWordIndex].classList.remove('highlight');
+                        currentWordIndex = -1;
+                    }
+
+                    // Tìm từ gần nhất với thời gian hiện tại
+                    for (let i = 0; i < data.timestamp.length; i++) {
+                        const startTime = data.timestamp[i][0];
+                        const duration = data.timestamp[i][1];
+                        const endTime = startTime + duration;
+
+                        if (currentTime < startTime - threshold) {
+                            break; // Không highlight gì nếu thời gian trước từ đầu tiên
+                        }
+
+                        if (currentTime >= startTime - threshold && currentTime <= endTime + threshold) {
+                            wordElements[i].classList.add('highlight');
+                            wordElements[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            currentWordIndex = i;
+                            break;
+                        }
+                    }
+                });
+
+                // Thêm CSS cho highlighting
+                const style = document.createElement('style');
+                style.textContent = `
+            .highlight {
+                background-color: #ffff66;
+                color: #000;
+                border-radius: 3px;
+                padding: 2px 0;
+                transition: background-color 0.2s ease;
+            }
+            #transcript {
+                line-height: 1.6;
+                font-size: 18px;
+                margin: 20px 0;
+            }
+        `;
+                document.head.appendChild(style);
+
+            } catch (error) {
+                console.error('Có lỗi xảy ra:', error);
+            }
+        }
+
+        // Khởi chạy hàm load data
+        loadData();
+    </script>
+</body>
+
+</html>
