@@ -32,7 +32,7 @@
       </div>
       <!-- Chat Box -->
       <div ref="chatBox" class="flex-1 p-4 overflow-y-auto">
-        <div v-for="(message, index) in messages" :key="index" :class="message.role">
+        <div v-for="(message, index) in messages" :key="index" class="mb-2 flex" :class="{'justify-end': message.role === 'user'}">
           <p :class="{
             'bg-gray-100 text-gray-800 rounded-xl p-2 mb-2 max-w-fit': message.role === 'assistant',
             'bg-blue-500 text-white rounded-xl p-2 mb-2 self-end max-w-fit': message.role === 'user',
@@ -92,7 +92,9 @@ export default {
     };
 
     const loadChat = (history) => {
+      if (!histoty) return;
       messages.value = [...history.messages];
+      userMessage.value = "";
       scrollToBottom();
     };
 
@@ -113,7 +115,7 @@ export default {
       if (!userMessage.value.trim() || isTyping.value) return;
 
       messages.value.push({ role: "user", content: userMessage.value });
-      const currentMessage = userMessage.value;
+      // const currentMessage = userMessage.value;
       userMessage.value = "";
       await scrollToBottom();
 
@@ -225,6 +227,8 @@ export default {
 
     onUpdated(() => {
       scrollToBottom();
+      const storedHistory = localStorage.getItem("chatHistory");
+      if (storedHistory) chatHistory.value = JSON.parse(storedHistory);
     });
 
     return {
